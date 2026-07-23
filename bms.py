@@ -70,9 +70,18 @@ publish_sensor(
 
 publish_sensor(
     client,
-    "bms_remaining_capacity",
-    "Remaining capacity",
-    "{{ value_json.remaining_capacity }}",
+    "bms_capacity_remaining",
+    "Capacity remaining",
+    "{{ value_json.capacity_remaining }}",
+    "Ah",
+    2,
+)
+
+publish_sensor(
+    client,
+    "bms_capacity_full",
+    "Capacity full",
+    "{{ value_json.capacity_full }}",
     "Ah",
     2,
 )
@@ -157,6 +166,25 @@ publish_sensor(
     "temperature",
 )
 
+publish_sensor(
+    client,
+    "bms_current",
+    "Current",
+    "{{ value_json.current }}",
+    "A",
+    2,
+    "current",
+)
+
+publish_sensor(
+    client,
+    "bms_soh",
+    "SOH",
+    "{{ value_json.soh }}",
+    "%",
+    0,
+)
+
 REQUEST = b"~22014A42E00201FD28\r"
 
 
@@ -209,9 +237,10 @@ def parse_frame(frame):
     result["header"] = header
 
     # Ah
-    remaining_capacity, pos = read_u8(payload, pos)
+    capacity_remaining, pos = read_u8(payload, pos)
     # TODO: double check this, it's weird we're not getting the 2 decimal places
-    result["remaining_capacity"] = remaining_capacity
+    # this is decreasing too fast, it's prob SOC actually
+    result["capacity_remaining"] = capacity_remaining
 
     # Pack voltage
     pack_voltage, pos = read_u16(payload, pos)
@@ -225,7 +254,7 @@ def parse_frame(frame):
     cells = []
     for _ in range(cell_count):
         mv, pos = read_u16(payload, pos)
-        cells.append(round(mv / 1000.0, 3))
+        cells.append(round(mv / 1000.0, 3))  # round() needed?
 
     result["cell_voltages"] = cells
     result["cell_min"] = min(cells)
@@ -244,7 +273,29 @@ def parse_frame(frame):
         "env": temperatures[0],
         "pack": temperatures[1],
         "mos": temperatures[2],
+        "cells": [],
     }
+
+    temperature_count, pos = read_u8(payload, pos)
+    for _ in range(temperature_count):
+        t, pos = read_u16(payload, pos)
+        result["temperatures"]["cells"].append(t / 10.0)
+
+    current, pos = read_s16(payload, pos)
+    result["current"] = current / 100.0
+
+    for _ in range(3):  # skip unidentified three "00"
+        tmp, pos = read_u8(payload, pos)
+        # print(tmp) # always "0"
+
+    soh, pos = read_u8(payload, pos)
+    result["soh"] = soh
+
+    tmp, pos = read_u8(payload, pos)
+    # print(tmp) # always "1"?
+
+    capacity_full, pos = read_u16(payload, pos)
+    result["capacity_full"] = capacity_full / 100.0
 
     # print("\nBalancing?:")
     # debug = int.from_bytes(data[48:50], "big")
