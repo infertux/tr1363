@@ -63,6 +63,22 @@ client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
 
 publish_sensor(
     client,
+    "bms_header",
+    "Frame header",
+    "{{ value_json.header }}",  # FIXME: cannot pass string to HASS
+)
+
+publish_sensor(
+    client,
+    "bms_remaining_capacity",
+    "Remaining capacity",
+    "{{ value_json.remaining_capacity }}",
+    "Ah",
+    2,
+)
+
+publish_sensor(
+    client,
     "bms_pack_voltage",
     "Pack Voltage",
     "{{ value_json.pack_voltage }}",
@@ -71,35 +87,16 @@ publish_sensor(
     "voltage",
 )
 
-publish_sensor(
-    client,
-    "bms_temp1",
-    "Temperature 1",
-    "{{ value_json.temperatures.t1 }}",
-    "°C",
-    0,
-    "temperature",
-)
-
-publish_sensor(
-    client,
-    "bms_temp2",
-    "Temperature 2",
-    "{{ value_json.temperatures.t2 }}",
-    "°C",
-    0,
-    "temperature",
-)
-
-publish_sensor(
-    client,
-    "bms_temp3",
-    "Temperature 3",
-    "{{ value_json.temperatures.t3 }}",
-    "°C",
-    0,
-    "temperature",
-)
+for i in range(16):
+    publish_sensor(
+        client,
+        f"bms_cell_{i + 1:02d}",
+        f"Cell {i + 1}",
+        f"{{{{ value_json.cell_voltages[{i}] }}}}",
+        "V",
+        3,
+        "voltage",
+    )
 
 publish_sensor(
     client,
@@ -127,68 +124,148 @@ publish_sensor(
     "Cell Delta",
     "{{ value_json.cell_delta }}",
     "V",
-    precision=3,
-)
-
-for i in range(16):
-    publish_sensor(
-        client,
-        f"bms_cell_{i + 1:02d}",
-        f"Cell {i + 1}",
-        f"{{{{ value_json.cells[{i}] }}}}",
-        "V",
-        3,
-        "voltage",
-    )
-
-publish_sensor(
-    client,
-    "bms_debug",
-    "Debug",
-    "{{ value_json.debug }}",
+    3,
 )
 
 publish_sensor(
     client,
-    "bms_raw",
-    "Raw frame",
-    "{{ value_json.raw }}",
+    "bms_temp_env",
+    "Temperature env",
+    "{{ value_json.temperatures.env }}",
+    "°C",
+    0,
+    "temperature",
+)
+
+publish_sensor(
+    client,
+    "bms_temp_pack",
+    "Temperature pack",
+    "{{ value_json.temperatures.pack }}",
+    "°C",
+    0,
+    "temperature",
+)
+
+publish_sensor(
+    client,
+    "bms_temp_mos",
+    "Temperature MOS",
+    "{{ value_json.temperatures.mos }}",
+    "°C",
+    0,
+    "temperature",
 )
 
 REQUEST = b"~22014A42E00201FD28\r"
 
 
-def ascii_hex_to_bytes(frame):
+def read_u8(payload, pos):
+    """Read one byte (2 ASCII hex chars)."""
+    return int(payload[pos : pos + 2], 16), pos + 2
+
+
+def read_u16(payload, pos):
+    """Read one big-endian 16-bit value (4 ASCII hex chars)."""
+    return int(payload[pos : pos + 4], 16), pos + 4
+
+
+def read_s16(payload, pos):
+    """Read one signed big-endian 16-bit value."""
+    value, pos = read_u16(payload, pos)
+    if value & 0x8000:
+        value -= 0x10000
+    return value, pos
+
+
+def parse_frame(frame):
     """
-    Convert:
-        ~22014A00E0...
-    into:
-        22 01 4A 00 E0 ...
+    Parse the BMS ASCII response.
     """
-    # s = frame.decode("ascii", errors="ignore").strip()
-    s = ""
     try:
-        s = frame.decode("ascii", errors="strict").strip()
+        frame = frame.decode("ascii", errors="strict").strip()
     except UnicodeDecodeError as e:
         raise ValueError(f"Invalid ASCII in frame: {e}")
 
-    if not s.startswith("~"):
+    if not frame.startswith("~"):
         raise ValueError("Frame does not start with '~'")
 
-    s = s[1:]
+    if len(frame) < 18:
+        raise ValueError("Frame too short")
 
-    if not re.fullmatch(r"[0-9A-Fa-f]+", s):
-        raise ValueError(f"Invalid hex characters in {s}")
+    # Remove '~'
+    body = frame[1:]
 
-    out = bytearray()
+    if not re.fullmatch(r"[0-9A-Fa-f]+", body):
+        raise ValueError(f"Invalid hex characters in {body}")
 
-    for i in range(0, len(s), 2):
-        try:
-            out.append(int(s[i : i + 2], 16))
-        except:
-            break
+    # Header is always 16 ASCII hex chars
+    header = body[:16]
+    payload = body[16:]
 
-    return out
+    pos = 0
+
+    result = {}
+    result["header"] = header
+
+    # Ah
+    remaining_capacity, pos = read_u8(payload, pos)
+    # TODO: double check this, it's weird we're not getting the 2 decimal places
+    result["remaining_capacity"] = remaining_capacity
+
+    # Pack voltage
+    pack_voltage, pos = read_u16(payload, pos)
+    result["pack_voltage"] = pack_voltage / 100.0
+
+    # Number of cells
+    cell_count, pos = read_u8(payload, pos)
+    result["cell_count"] = cell_count
+
+    # Cell voltages
+    cells = []
+    for _ in range(cell_count):
+        mv, pos = read_u16(payload, pos)
+        cells.append(round(mv / 1000.0, 3))
+
+    result["cell_voltages"] = cells
+    result["cell_min"] = min(cells)
+    result["cell_max"] = max(cells)
+    result["cell_delta"] = round(max(cells) - min(cells), 3)
+    result["cell_min_index"] = cells.index(min(cells)) + 1  # TODO: add autodiscovery
+    result["cell_max_index"] = cells.index(max(cells)) + 1  # TODO: add autodiscovery
+
+    # Temperature sensors
+    temperatures = []
+    for _ in range(3):
+        t, pos = read_u16(payload, pos)
+        temperatures.append(t / 10.0)
+
+    result["temperatures"] = {
+        "env": temperatures[0],
+        "pack": temperatures[1],
+        "mos": temperatures[2],
+    }
+
+    # print("\nBalancing?:")
+    # debug = int.from_bytes(data[48:50], "big")
+    # print(f"Bitmap: {debug}")
+    # print(f"Bits  : {debug:016b}")
+
+    # 320 when ??? (no change with or without OV)
+    #
+    # 340 when balancing is ON? or is it OV flag?
+    # 330 when balancing is OFF?
+    # balancing only when cell_max < 3.60V???
+
+    # 3.65V+ triggers OV alarm
+    # 3.50V clears OV?
+
+    # float = 54.3V --> shunt at 54.17V and 0.0A
+    # float = 54.4V --> shunt at 54.23V and 0.0A
+
+    result["remaining_payload"] = payload[pos:]
+
+    return result
 
 
 ser = serial.Serial(
@@ -200,116 +277,20 @@ ser = serial.Serial(
     timeout=2,
 )
 
-# ser.rtscts = False
-# ser.dsrdtr = False
-# ser.xonxoff = False
-print(ser.get_settings())
+# print(ser.get_settings())
 
 print("Sending request...")
 ser.reset_input_buffer()
 ser.write(REQUEST)
 
-raw = ser.read_until(b"\r")
+frame = ser.read_until(b"\r")
 
 print("\nASCII response:")
-print(raw)
+print(frame)
 
-data = ascii_hex_to_bytes(raw)
-
-# print("\nDecoded bytes with indexes:\n")
-#
-# for i, b in enumerate(decoded):
-#    print(f"{i:02d}: {b:02X}")
-
-# index += 1 # move to first cell voltage
-#
-# if index + cells * 2 > len(decoded):
-#    raise("Not enough bytes.")
-#
-# print("Big-endian:")
-#
-# for i in range(cells):
-#    hi = decoded[index + i * 2]
-#    lo = decoded[index + i * 2 + 1]
-#    mv = (hi << 8) | lo
-#    pack_voltage += mv
-#    print(f"  Cell {i+1:02d}: {mv/1000:.3f} V")
-#
-
-# data = bytes.fromhex(decoded)
-
-cell_count = data[11]
-
-print(f"Cell count: {cell_count}")
-
-if cell_count != 16:
-    raise ValueError("Wrong cell count")
-
-offset = 12
-
-# Cell voltages
-pack_voltage = 0
-cells = []
-for i in range(cell_count):
-    mv = int.from_bytes(data[offset : offset + 2], "big")
-    pack_voltage += mv
-    cells.append(mv / 1000)
-    offset += 2
-pack_voltage = round(pack_voltage / 1000, 2)
-
-print("\nCell voltages:")
-for i, v in enumerate(cells, 1):
-    print(f"Cell {i:2}: {v} V")
-
-# 3 temperature sensors found even though there are 5 on the battery screen
-temps = []
-for i in range(3):
-    temp = int.from_bytes(data[offset : offset + 2], "big") / 10.0
-    temps.append(temp)
-    offset += 2
-
-print("\nTemperatures:")
-for i, temp in enumerate(temps, 1):
-    print(f"Temp {i}: {temp:.1f} °C")
-
-print("\nBalancing?:")
-debug = int.from_bytes(data[48:50], "big")
-print(f"Bitmap: 0x{debug:04X}")
-print(f"Bits  : {debug:016b}")
-
-# 0x140 but NOT about OV alarm + protection (no change with or without OV)
-# 0x14A with OV alarm bot NOT protection
-
-# 3.65V+ triggers OV alarm
-
-# float = 54.3V --> shunt at 54.17V and 0.0A
-# float = 54.4V --> shunt at 54.23V and 0.0A
-
-# pack_voltage = (data[6] << 8 | data[7]) / 100.0
-# print(f"Pack voltage???: {pack_voltage:.2f} V")
-
-# Remaining bytes (if any)
-if offset < len(data):
-    print("\nRemaining bytes:")
-    print(data[offset:].hex().upper())
-
-
-payload = {
-    "pack_voltage": pack_voltage,
-    "temperatures": {
-        "t1": temps[0],
-        "t2": temps[1],
-        "t3": temps[2],
-    },
-    "cells": cells,
-    "cell_min": min(cells),
-    "cell_max": max(cells),
-    "cell_delta": max(cells) - min(cells),
-    "cell_min_index": cells.index(min(cells)) + 1,  # TODO
-    "cell_max_index": cells.index(max(cells)) + 1,  # TODO
-    "debug": debug,
-    "raw": raw.decode(),
-}
+payload = parse_frame(frame)
+print("\nDecoded payload:")
+print(payload)
 
 client.publish(
     "bms/state",
