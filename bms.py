@@ -70,6 +70,15 @@ publish_sensor(
 
 publish_sensor(
     client,
+    "bms_soc",
+    "SOC",
+    "{{ value_json.soc }}",
+    "%",
+    0,
+)
+
+publish_sensor(
+    client,
     "bms_capacity_remaining",
     "Capacity remaining",
     "{{ value_json.capacity_remaining }}",
@@ -185,6 +194,15 @@ publish_sensor(
     0,
 )
 
+publish_sensor(
+    client,
+    "bms_cycles",
+    "Cycles",
+    "{{ value_json.cycles }}",
+    "",
+    0,
+)
+
 REQUEST = b"~22014A42E00201FD28\r"
 
 
@@ -204,6 +222,14 @@ def read_s16(payload, pos):
     if value & 0x8000:
         value -= 0x10000
     return value, pos
+
+
+def ascii_sum(s):
+    return sum(s.encode())
+
+
+def twos_complement(s):
+    return (-ascii_sum(s)) & 0xFFFF
 
 
 def parse_frame(frame):
@@ -236,11 +262,9 @@ def parse_frame(frame):
     result = {}
     result["header"] = header
 
-    # Ah
-    capacity_remaining, pos = read_u8(payload, pos)
-    # TODO: double check this, it's weird we're not getting the 2 decimal places
-    # this is decreasing too fast, it's prob SOC actually
-    result["capacity_remaining"] = capacity_remaining
+    # SOC???
+    soc, pos = read_u8(payload, pos)
+    result["soc"] = soc
 
     # Pack voltage
     pack_voltage, pos = read_u16(payload, pos)
@@ -296,6 +320,52 @@ def parse_frame(frame):
 
     capacity_full, pos = read_u16(payload, pos)
     result["capacity_full"] = capacity_full / 100.0
+
+    # XXX: really?
+    result["soc"] = round(result["soc"] / result["capacity_full"] * 100, 2)
+
+    capacity_remaining, pos = read_u16(payload, pos)
+    result["capacity_remaining"] = capacity_remaining / 100.0
+
+    cycles, pos = read_u16(payload, pos)
+    result["cycles"] = cycles
+
+    voltage_status_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap voltage:     {voltage_status_bitmap:016b}")
+
+    current_status_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap current:     {current_status_bitmap:016b}")
+
+    temperature_status_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap temperature: {temperature_status_bitmap:016b}")
+
+    warning_status_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap warning:     {warning_status_bitmap:016b}")
+
+    for _ in range(5):
+        tmp, pos = read_u16(payload, pos)
+        print(f"Bitmap ???:         {tmp:016b}")
+
+    balance_status_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap balance:     {balance_status_bitmap:016b}")
+
+    for _ in range(6):
+        tmp, pos = read_u16(payload, pos)
+        print(f"Bitmap ???:         {tmp:016b}")
+
+    tmp, pos = read_u8(payload, pos)
+    print(tmp)
+
+    # TODO: assert no remaning payload left
+
+    # checksum_expected, pos = read_u16(payload, pos)
+    checksum_expected = hex(int(body[-4:], 16))
+    checksum_computed = hex(twos_complement(body[:-4]))
+
+    print("checksum_expected", checksum_expected)
+    print("checksum computed", checksum_computed)
+    if checksum_computed != checksum_expected:
+        raise ValueError("Bad checksum")
 
     # print("\nBalancing?:")
     # debug = int.from_bytes(data[48:50], "big")
