@@ -133,8 +133,17 @@ def parse_frame(frame):
     cycles, pos = read_u16(payload, pos)
     result["cycles"] = cycles
 
-    voltage_status_bitmap, pos = read_u16(payload, pos)
-    print(f"Bitmap voltage:     {voltage_status_bitmap:016b}")
+    voltage_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap voltage:     {voltage_bitmap:016b}")
+
+    cell_overvoltage_protection = voltage_bitmap & 1  # bit 0
+    result["cell_overvoltage_protection"] = cell_overvoltage_protection
+
+    cell_overvoltage_alarm = (voltage_bitmap >> 4) & 1  # bit 4
+    result["cell_overvoltage_alarm"] = cell_overvoltage_alarm
+
+    cell_voltage_diff_alarm = (voltage_bitmap >> 8) & 1  # bit 8
+    result["cell_voltage_diff_alarm"] = cell_voltage_diff_alarm
 
     current_status_bitmap, pos = read_u16(payload, pos)
     print(f"Bitmap current:     {current_status_bitmap:016b}")
@@ -154,7 +163,8 @@ def parse_frame(frame):
 
     cell_balancing = []
     for cell in range(16):
-        balancing = balance_bitmap & (1 << cell) != 0
+        balancing = 1 if balance_bitmap & (1 << cell) else 0
+        # TODO: should probably be a bool but we need to implement binary_sensor first
         cell_balancing.append(balancing)
         if balancing:
             print(f"Cell {cell + 1} balancing")
@@ -214,7 +224,6 @@ if len(sys.argv) == 2:
     print(payload)
 
     sys.exit(0)
-
 
 
 config = dotenv_values(".env")
@@ -349,7 +358,7 @@ for i in range(16):
     publish_sensor(
         client,
         f"bms_cell_{i + 1:02d}",
-        f"Cell {i + 1}",
+        f"Cell {i + 1} voltage",
         f"{{{{ value_json.cell_voltages[{i}] }}}}",
         "V",
         3,
@@ -450,6 +459,15 @@ publish_sensor(
     "",
     0,
 )
+
+publish_sensor(
+    client,
+    "bms_cell_overvoltage_protection",
+    "Cell overvoltage protection",
+    "{{ value_json.cell_overvoltage_protection }}",
+    "",
+)
+
 client.publish(
     "bms/state",
     json.dumps(payload),
