@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# SPDX-License-Identifier: MPL-2.0
+
 import sys
 import serial
 import re
@@ -267,6 +269,7 @@ DEVICE = {
 }
 
 DISCOVERY_PREFIX = "homeassistant"
+# TODO: rename to "homeassistant/tr1363/battery"?
 
 
 def publish_sensor(
