@@ -1,209 +1,11 @@
+#!/usr/bin/env python3
+
+import sys
 import serial
 import re
 import json
 import paho.mqtt.client as mqtt
 from dotenv import dotenv_values
-
-DEVICE = {
-    "identifiers": ["bms_16s"],
-    "name": "Battery BMS",
-    "manufacturer": "Unknown",
-    "model": "16S BMS",
-}
-
-DISCOVERY_PREFIX = "homeassistant"
-
-
-def publish_sensor(
-    client,
-    object_id,
-    name,
-    value_template,
-    unit=None,
-    precision=None,
-    device_class=None,
-    state_class="measurement",
-    icon=None,
-):
-    payload = {
-        "name": name,
-        "unique_id": object_id,
-        "state_topic": "bms/state",
-        "value_template": value_template,
-        "device": DEVICE,
-    }
-
-    if unit:
-        payload["unit_of_measurement"] = unit
-
-    if precision:
-        payload["suggested_display_precision"] = precision
-
-    if device_class:
-        payload["device_class"] = device_class
-
-    if state_class:
-        payload["state_class"] = state_class
-
-    if icon:
-        payload["icon"] = icon
-
-    client.publish(
-        f"{DISCOVERY_PREFIX}/sensor/{object_id}/config",
-        json.dumps(payload),
-        retain=True,
-    )
-
-
-config = dotenv_values(".env")
-
-client = mqtt.Client()
-client.username_pw_set(config["MQTT_USERNAME"], config["MQTT_PASSWORD"])
-client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
-
-publish_sensor(
-    client,
-    "bms_header",
-    "Frame header",
-    "{{ value_json.header }}",  # FIXME: cannot pass string to HASS
-)
-
-publish_sensor(
-    client,
-    "bms_soc",
-    "SOC",
-    "{{ value_json.soc }}",
-    "%",
-    0,
-)
-
-publish_sensor(
-    client,
-    "bms_capacity_remaining",
-    "Capacity remaining",
-    "{{ value_json.capacity_remaining }}",
-    "Ah",
-    2,
-)
-
-publish_sensor(
-    client,
-    "bms_capacity_full",
-    "Capacity full",
-    "{{ value_json.capacity_full }}",
-    "Ah",
-    2,
-)
-
-publish_sensor(
-    client,
-    "bms_pack_voltage",
-    "Pack Voltage",
-    "{{ value_json.pack_voltage }}",
-    "V",
-    2,
-    "voltage",
-)
-
-for i in range(16):
-    publish_sensor(
-        client,
-        f"bms_cell_{i + 1:02d}",
-        f"Cell {i + 1}",
-        f"{{{{ value_json.cell_voltages[{i}] }}}}",
-        "V",
-        3,
-        "voltage",
-    )
-
-publish_sensor(
-    client,
-    "bms_cell_min",
-    "Cell Min",
-    "{{ value_json.cell_min }}",
-    "V",
-    3,
-    "voltage",
-)
-
-publish_sensor(
-    client,
-    "bms_cell_max",
-    "Cell Max",
-    "{{ value_json.cell_max }}",
-    "V",
-    3,
-    "voltage",
-)
-
-publish_sensor(
-    client,
-    "bms_cell_delta",
-    "Cell Delta",
-    "{{ value_json.cell_delta }}",
-    "V",
-    3,
-)
-
-publish_sensor(
-    client,
-    "bms_temp_env",
-    "Temperature env",
-    "{{ value_json.temperatures.env }}",
-    "°C",
-    0,
-    "temperature",
-)
-
-publish_sensor(
-    client,
-    "bms_temp_pack",
-    "Temperature pack",
-    "{{ value_json.temperatures.pack }}",
-    "°C",
-    0,
-    "temperature",
-)
-
-publish_sensor(
-    client,
-    "bms_temp_mos",
-    "Temperature MOS",
-    "{{ value_json.temperatures.mos }}",
-    "°C",
-    0,
-    "temperature",
-)
-
-publish_sensor(
-    client,
-    "bms_current",
-    "Current",
-    "{{ value_json.current }}",
-    "A",
-    2,
-    "current",
-)
-
-publish_sensor(
-    client,
-    "bms_soh",
-    "SOH",
-    "{{ value_json.soh }}",
-    "%",
-    0,
-)
-
-publish_sensor(
-    client,
-    "bms_cycles",
-    "Cycles",
-    "{{ value_json.cycles }}",
-    "",
-    0,
-)
-
-REQUEST = b"~22014A42E00201FD28\r"
 
 
 def read_u8(payload, pos):
@@ -236,10 +38,11 @@ def parse_frame(frame):
     """
     Parse the BMS ASCII response.
     """
-    try:
-        frame = frame.decode("ascii", errors="strict").strip()
-    except UnicodeDecodeError as e:
-        raise ValueError(f"Invalid ASCII in frame: {e}")
+    if not isinstance(frame, str):
+        try:
+            frame = frame.decode("ascii", errors="strict").strip()
+        except UnicodeDecodeError as e:
+            raise ValueError(f"Invalid ASCII in frame: {e}")
 
     if not frame.startswith("~"):
         raise ValueError("Frame does not start with '~'")
@@ -346,8 +149,17 @@ def parse_frame(frame):
         tmp, pos = read_u16(payload, pos)
         print(f"Bitmap ???:         {tmp:016b}")
 
-    balance_status_bitmap, pos = read_u16(payload, pos)
-    print(f"Bitmap balance:     {balance_status_bitmap:016b}")
+    balance_bitmap, pos = read_u16(payload, pos)
+    print(f"Bitmap balance:     {balance_bitmap:016b}")
+
+    cell_balancing = []
+    for cell in range(16):
+        balancing = balance_bitmap & (1 << cell) != 0
+        cell_balancing.append(balancing)
+        if balancing:
+            print(f"Cell {cell + 1} balancing")
+
+    result["cell_balancing"] = cell_balancing
 
     for _ in range(6):
         tmp, pos = read_u16(payload, pos)
@@ -389,6 +201,29 @@ def parse_frame(frame):
     return result
 
 
+########################################################
+
+if len(sys.argv) == 2:
+    print("Argument passed, parsing single frame.")
+
+    frame = sys.argv[1]
+    print(f"The argument passed is: {frame}")
+
+    payload = parse_frame(frame)
+    print("\nDecoded payload:")
+    print(payload)
+
+    sys.exit(0)
+
+
+
+config = dotenv_values(".env")
+
+client = mqtt.Client()
+client.username_pw_set(config["MQTT_USERNAME"], config["MQTT_PASSWORD"])
+client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
+
+
 ser = serial.Serial(
     config["BMS_PORT"],
     int(config["BMS_BAUD"]),
@@ -400,6 +235,7 @@ ser = serial.Serial(
 
 # print(ser.get_settings())
 
+REQUEST = b"~22014A42E00201FD28\r"
 print("Sending request...")
 ser.reset_input_buffer()
 ser.write(REQUEST)
@@ -413,6 +249,207 @@ payload = parse_frame(frame)
 print("\nDecoded payload:")
 print(payload)
 
+
+DEVICE = {
+    "identifiers": ["bms_16s"],
+    "name": "Battery BMS",
+    "manufacturer": "Unknown",
+    "model": "16S BMS",
+}
+
+DISCOVERY_PREFIX = "homeassistant"
+
+
+def publish_sensor(
+    client,
+    object_id,
+    name,
+    value_template,
+    unit=None,
+    precision=None,
+    device_class=None,
+    state_class="measurement",
+    icon=None,
+):
+    payload = {
+        "name": name,
+        "unique_id": object_id,
+        "state_topic": "bms/state",
+        "value_template": value_template,
+        "device": DEVICE,
+    }
+
+    if unit:
+        payload["unit_of_measurement"] = unit
+
+    if precision:
+        payload["suggested_display_precision"] = precision
+
+    if device_class:
+        payload["device_class"] = device_class
+
+    if state_class:
+        payload["state_class"] = state_class
+
+    if icon:
+        payload["icon"] = icon
+
+    client.publish(
+        f"{DISCOVERY_PREFIX}/sensor/{object_id}/config",
+        json.dumps(payload),
+        retain=True,
+    )
+
+
+publish_sensor(
+    client,
+    "bms_header",
+    "Frame header",
+    "{{ value_json.header }}",  # FIXME: cannot pass string to HASS
+)
+
+publish_sensor(
+    client,
+    "bms_soc",
+    "SOC",
+    "{{ value_json.soc }}",
+    "%",
+    0,
+)
+
+publish_sensor(
+    client,
+    "bms_capacity_remaining",
+    "Capacity remaining",
+    "{{ value_json.capacity_remaining }}",
+    "Ah",
+    2,
+)
+
+publish_sensor(
+    client,
+    "bms_capacity_full",
+    "Capacity full",
+    "{{ value_json.capacity_full }}",
+    "Ah",
+    2,
+)
+
+publish_sensor(
+    client,
+    "bms_pack_voltage",
+    "Pack Voltage",
+    "{{ value_json.pack_voltage }}",
+    "V",
+    2,
+    "voltage",
+)
+
+for i in range(16):
+    publish_sensor(
+        client,
+        f"bms_cell_{i + 1:02d}",
+        f"Cell {i + 1}",
+        f"{{{{ value_json.cell_voltages[{i}] }}}}",
+        "V",
+        3,
+        "voltage",
+    )
+
+    publish_sensor(
+        client,
+        f"bms_cell_{i + 1:02d}_balancing",
+        f"Cell {i + 1} balancing",
+        f"{{{{ value_json.cell_balancing[{i}] }}}}",
+        "",
+    )
+
+publish_sensor(
+    client,
+    "bms_cell_min",
+    "Cell Min",
+    "{{ value_json.cell_min }}",
+    "V",
+    3,
+    "voltage",
+)
+
+publish_sensor(
+    client,
+    "bms_cell_max",
+    "Cell Max",
+    "{{ value_json.cell_max }}",
+    "V",
+    3,
+    "voltage",
+)
+
+publish_sensor(
+    client,
+    "bms_cell_delta",
+    "Cell Delta",
+    "{{ value_json.cell_delta }}",
+    "V",
+    3,
+)
+
+publish_sensor(
+    client,
+    "bms_temp_env",
+    "Temperature env",
+    "{{ value_json.temperatures.env }}",
+    "°C",
+    0,
+    "temperature",
+)
+
+publish_sensor(
+    client,
+    "bms_temp_pack",
+    "Temperature pack",
+    "{{ value_json.temperatures.pack }}",
+    "°C",
+    0,
+    "temperature",
+)
+
+publish_sensor(
+    client,
+    "bms_temp_mos",
+    "Temperature MOS",
+    "{{ value_json.temperatures.mos }}",
+    "°C",
+    0,
+    "temperature",
+)
+
+publish_sensor(
+    client,
+    "bms_current",
+    "Current",
+    "{{ value_json.current }}",
+    "A",
+    2,
+    "current",
+)
+
+publish_sensor(
+    client,
+    "bms_soh",
+    "SOH",
+    "{{ value_json.soh }}",
+    "%",
+    0,
+)
+
+publish_sensor(
+    client,
+    "bms_cycles",
+    "Cycles",
+    "{{ value_json.cycles }}",
+    "",
+    0,
+)
 client.publish(
     "bms/state",
     json.dumps(payload),
