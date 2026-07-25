@@ -125,8 +125,8 @@ Extensive testing has revealed several characteristics of the passive balancing 
 ### Observed behaviour
 
 - Passive balancing is only active while the BMS detects charging.
-- Cells become eligible for balancing at **3.500 V**.
-- Balancing stops when cell voltage exceeds **3.630 V**.
+- Cells become eligible for balancing at **3.50 V**.
+- Balancing stops when cell voltage reaches **3.75 V**.
 - Balancing is not continuous. The BMS drives the bleed resistors with an intermittent PWM-like duty cycle.
 - Under the tested conditions, the observed duty cycle is approximately **30%**.
 - If charging current stops, balancing also stops.
@@ -139,10 +139,36 @@ Because balancing is only active while charging and only within a relatively nar
 
 In testing:
 
-- A float voltage of **54.0 V** kept the highest cell within the balancing window, but charging current dropped to zero, preventing balancing.
-- A float voltage of **54.1 V** maintained charging, allowing balancing to continue, although the highest cell occasionally exceeded the upper balancing threshold.
+- A float voltage of **54.2 V** kept the highest cell within the balancing window, but charging current dropped to zero, preventing balancing.
+- A float voltage of **54.3 V** maintained charging, allowing balancing to continue, although the highest cell occasionally exceeded the upper balancing threshold.
 
 The BMS appears to regulate balancing by periodically enabling and disabling the bleed resistor rather than balancing continuously, making the effective balancing current significantly lower than the hardware bleed current. As a result, correcting large cell imbalances can require many hours or even several days of continuous charging.
+
+## Configuration Parameters
+
+The official Windows application allows writing configuration parameters to the BMS. Access to these settings is protected by a password.
+
+**Default configuration password:**
+
+```
+666666
+```
+
+> **Warning**
+>
+> Changing BMS parameters can permanently alter the battery's behavior and may lead to battery damage or unsafe operating conditions if incorrect values are used. Modify settings only if you fully understand their purpose.
+
+### Confirmed Configurable Parameters
+
+The following parameter has been successfully modified and verified:
+
+| Parameter | Default | Verified Range | Notes |
+|----------|--------:|---------------:|------|
+| Cell balancing start voltage (aka "Starting V") | **3500 mV** | **3410–3500 mV** | The Windows application refuses values below **3410 mV**. |
+
+### Experimental Findings
+
+By lowering the balancing start voltage from **3500 mV** to **3410 mV**, the BMS begins passive balancing significantly earlier during the charge cycle. This increases the amount of time available for balancing before cells reach the upper voltage limit, potentially improving balancing effectiveness on heavily imbalanced battery packs.
 
 ## Contributing
 
