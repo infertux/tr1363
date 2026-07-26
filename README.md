@@ -10,6 +10,28 @@ The protocol has been reverse engineered entirely through observation and experi
 
 ---
 
+## Usage
+
+### As a Home Assistant (MQTT) bridge
+
+```bash
+./homeassistant.py
+```
+
+### As a Python library
+
+```python
+from tr1363 import TR1363
+
+bms = TR1363("/dev/ttyUSB0")
+
+status = bms.read_status()
+
+print(status.soc)
+print(status.current)
+print(status.cell_voltages)
+```
+
 ## Features
 
 - Decode proprietary TR1363 serial protocol
@@ -169,6 +191,16 @@ The following parameter has been successfully modified and verified:
 ### Experimental Findings
 
 By lowering the balancing start voltage from **3500 mV** to **3410 mV**, the BMS begins passive balancing significantly earlier during the charge cycle. This increases the amount of time available for balancing before cells reach the upper voltage limit, potentially improving balancing effectiveness on heavily imbalanced battery packs.
+
+## Development
+
+`pip install -e .`
+
+Source files stay where they are. Every change is immediately available. No reinstall necessary.
+
+## Testing
+
+`pytest`
 
 ## Contributing
 

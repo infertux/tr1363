@@ -1,1 +1,5 @@
 /.env
+/captures/
+
+__pycache__/
+*.egg-info/
