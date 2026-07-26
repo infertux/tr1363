@@ -1,5 +1,8 @@
 import paho.mqtt.client as mqtt
 import json
+from dotenv import dotenv_values
+
+from tr1363.models import Status
 
 DEVICE = {
     "identifiers": ["bms_16s"],
@@ -53,6 +56,8 @@ DISCOVERY_PREFIX = "homeassistant"
 #    )
 
 
+config = dotenv_values(".env")
+
 client = mqtt.Client()
 client.username_pw_set(config["MQTT_USERNAME"], config["MQTT_PASSWORD"])
 client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
@@ -60,8 +65,8 @@ client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
 for field in Status.fields():
     payload = {
         "name": field.name,
-        "unique_id": f"{serial}_{field.key}",
-        "state_topic": topic,
+        "unique_id": f"{field.key}",
+        "state_topic": "bms/state",
         "value_template": f"{{{{ value_json.{field.key} }}}}",
         "unit_of_measurement": field.unit,
         "device_class": field.device_class,
