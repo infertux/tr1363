@@ -97,10 +97,39 @@ Currently tested with:
 
 - LFP Battery 16S LiFePO₄ battery
 - CH340 USB-RS485 adapter
-- Python 3.10+
+- Python 3.11+
 - Home Assistant
 
 Other battery models may work but have not yet been verified.
+
+### RS-485 Wiring
+
+The BMS uses an RJ45 connector for its RS-485 interface, however it **does not** follow the standard Ethernet (T568A/T568B) pinout. Only two pins are used for communication.
+
+A convenient way to build a robust cable is to use a CAT5e or CAT6 cable and crimp an RJ45 plug on one end.
+
+Since the BMS only uses two conductors, the remaining pairs may be left unconnected.
+
+One recommended wiring is:
+
+| RJ45 Pin | Wire Color (T568B) | Signal |
+|----------|--------------------|--------|
+| **1** | White/Orange | RS-485 **B** |
+| **7** | White/Brown | RS-485 **A** |
+
+Although this uses conductors from different twisted pairs, it exactly matches the BMS connector and has been verified to operate correctly.
+
+If communication does not work, verify that your adapter uses the same A/B naming convention. Unfortunately, some RS-485 manufacturers reverse the labels. The TR1363 BMS pinout documented above has been verified experimentally.
+
+### Adding a Ground Reference (optional)
+
+Many inexpensive USB-RS485 adapters only expose the differential pair (A/B). Some higher quality adapters also provide a **GND** terminal.
+
+RS-485 is designed to operate using only the differential pair, so a ground connection is **not required** for communication. However, when the inverter, BMS and USB adapter are powered from different sources, providing a common signal reference may improve communication reliability and reduce occasional framing or CRC errors.
+
+At the time of writing, the BMS RJ45 connector only exposes pins **1** and **7**. I wasn't able to find any ground by poking the battery case with a multimeter.
+
+However if a signal ground pin is identified in the future, it is recommended to connect it directly to the **GND** terminal of the USB-RS485 adapter.
 
 ---
 
