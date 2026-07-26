@@ -2,6 +2,8 @@
 
 # SPDX-License-Identifier: MPL-2.0
 
+# XXX: PoC file, this will eventually be deleted once the refactoring is complete.
+
 import sys
 import serial
 import re

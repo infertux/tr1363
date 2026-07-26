@@ -14,9 +14,13 @@ The protocol has been reverse engineered entirely through observation and experi
 
 ### As a Home Assistant (MQTT) bridge
 
+Create a `./env` file using `./.env.example` as template then run:
+
 ```bash
 ./homeassistant.py
 ```
+
+It will query the BMS status in a loop and publish the metrics to MQTT so you can use them in Home Assistant.
 
 ### As a Python library
 
@@ -32,19 +36,21 @@ print(status.current)
 print(status.cell_voltages)
 ```
 
+See [example.py](example.py).
+
 ## Features
 
 - Decode proprietary TR1363 serial protocol
 - Python parser with named fields
 - MQTT publisher
 - Home Assistant MQTT auto-discovery
-- Cell voltage monitoring
-- Pack voltage
-- Charge/discharge current
 - State of Charge (SOC)
+- Pack voltage
+- Cell voltage monitoring
+- Charge/discharge current
 - Temperatures
 - Status and protection flags
-- Passive balancing status bitmap
+- Passive balancing status
 - Reverse-engineered protocol documentation
 
 ---
@@ -74,56 +80,14 @@ This project aims to:
 - Current
 - Temperatures
 - SOC?
-- Status bitmaps
+- Status bitmap
 - Balance bitmap
-- MQTT integration
-- Home Assistant auto-discovery
 
 ### Under Investigation
 
 - Remaining undocumented fields
 - Settings command
 - Firmware differences between hardware revisions
-
----
-
-## Repository Structure
-
-```
-docs/
-    protocol.md
-    frame_format.md
-    commands.md
-    balancing.md
-
-python/
-    parser.py
-    mqtt_bridge.py
-
-captures/
-
-homeassistant/
-    autodiscovery.py
-
-README.md
-LICENSE
-```
-
----
-
-## Example Output
-
-```json
-{
-  "soc": 98.90,
-  "pack_voltage": 54.53,
-  "current": -1.42,
-  "cell_delta": 0.252,
-  "max_cell": 3.620,
-  "min_cell": 3.368,
-  "balance_bitmap": "0000000000010000"
-}
-```
 
 ---
 
@@ -170,11 +134,7 @@ The BMS appears to regulate balancing by periodically enabling and disabling the
 
 The official Windows application allows writing configuration parameters to the BMS. Access to these settings is protected by a password.
 
-**Default configuration password:**
-
-```
-666666
-```
+**Default configuration password:** `666666`
 
 > **Warning**
 >
@@ -221,7 +181,7 @@ If you have a battery that behaves differently, please open an issue and include
 
 ## Disclaimer
 
-This project is completely independent of DR Battery.
+This project is completely independent of the battery manufacturer.
 
 The protocol has been reverse engineered from publicly observable communication between the battery and the official application.
 
@@ -234,4 +194,3 @@ Use this software at your own risk. Writing incorrect values to a BMS can perman
 This project is licensed under the **Mozilla Public License Version 2.0 (MPL-2.0)**.
 
 See [LICENSE](LICENSE) for details.
-
