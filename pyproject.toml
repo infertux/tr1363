@@ -7,7 +7,7 @@ name = "tr1363"
 version = "0.1.0"
 description = "TR1363 Battery Management System protocol"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 
 authors = [
     {name="Cédric Félizard", email = "cedric@felizard.fr"}
