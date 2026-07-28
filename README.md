@@ -104,6 +104,8 @@ Other battery models may work but have not yet been verified.
 
 ### RS-485 Wiring
 
+![TR1363 BMS USB-RS485 Wiring Diagram](docs/images/rs485-wiring.png)
+
 The BMS uses an RJ45 connector for its RS-485 interface, however it **does not** follow the standard Ethernet (T568A/T568B) pinout. Only two pins are used for communication.
 
 A convenient way to build a robust cable is to use a CAT5e or CAT6 cable and crimp an RJ45 plug on one end.
