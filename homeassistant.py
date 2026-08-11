@@ -1,7 +1,13 @@
+#!/usr/bin/env python3
+
+# SPDX-License-Identifier: MPL-2.0
+
 import paho.mqtt.client as mqtt
 import json
 from dotenv import dotenv_values
+from dataclasses import fields, asdict
 
+from tr1363 import TR1363
 from tr1363.models import Status
 
 DEVICE = {
@@ -15,66 +21,37 @@ DISCOVERY_PREFIX = "homeassistant"
 # TODO: rename to "homeassistant/tr1363/battery"?
 
 
-# def publish_sensor(
-#    client,
-#    object_id,
-#    name,
-#    value_template,
-#    unit=None,
-#    precision=None,
-#    device_class=None,
-#    state_class="measurement",
-#    icon=None,
-# ):
-#    payload = {
-#        "name": name,
-#        "unique_id": object_id,
-#        "state_topic": "bms/state",
-#        "value_template": value_template,
-#        "device": DEVICE,
-#    }
-#
-#    if unit:
-#        payload["unit_of_measurement"] = unit
-#
-#    if precision:
-#        payload["suggested_display_precision"] = precision
-#
-#    if device_class:
-#        payload["device_class"] = device_class
-#
-#    if state_class:
-#        payload["state_class"] = state_class
-#
-#    if icon:
-#        payload["icon"] = icon
-#
-#    client.publish(
-#        f"{DISCOVERY_PREFIX}/sensor/{object_id}/config",
-#        json.dumps(payload),
-#        retain=True,
-#    )
-
-
-config = dotenv_values(".env")
+env = dotenv_values(".env")
 
 client = mqtt.Client()
-client.username_pw_set(config["MQTT_USERNAME"], config["MQTT_PASSWORD"])
-client.connect(config["MQTT_HOST"], int(config["MQTT_PORT"]), 60)
+client.username_pw_set(env["MQTT_USERNAME"], env["MQTT_PASSWORD"])
+client.connect(env["MQTT_HOST"], int(env["MQTT_PORT"]), 60)
 
-for field in Status.fields():
-    payload = {
-        "name": field.name,
-        "unique_id": f"{field.key}",
+for field in fields(Status):
+    id = field.name
+
+    config = {
+        "device": DEVICE,
         "state_topic": "bms/state",
-        "value_template": f"{{{{ value_json.{field.key} }}}}",
-        "unit_of_measurement": field.unit,
-        "device_class": field.device_class,
-        "state_class": field.state_class,
+        "default_entity_id": id,
+        "name": field.metadata["name"],
+        "value_template": f"{{{{ value_json.{id} }}}}",
+        "unit_of_measurement": field.metadata["unit_of_measurement"],
+        "suggested_display_precision": field.metadata["suggested_display_precision"],
+        "device_class": field.metadata["device_class"],
+        "state_class": field.metadata["state_class"],
     }
 
+    # print(config)
+
     client.publish(
-        "bms/state",
-        json.dumps(payload),
-        # retain=True,
+        f"{DISCOVERY_PREFIX}/sensor/{id}/config",
+        json.dumps(config),
+        retain=True,
     )
+
+bms = TR1363(env["BMS_PORT"], env["BMS_BAUD"])
+status = bms.read_status()
+print("Status", status)
+
+client.publish("bms/state", json.dumps(asdict(status)), retain=True)

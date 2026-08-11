@@ -17,9 +17,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "State of Charge",
-            "unit": "%",
+            "unit_of_measurement": "%",
             "device_class": "battery",
             "state_class": "measurement",
+            "suggested_display_precision": 2,
         },
     )
 
@@ -27,9 +28,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "State of Health",
-            "unit": "%",
+            "unit_of_measurement": "%",
             "device_class": "",
             "state_class": "measurement",
+            "suggested_display_precision": 0,
         },
     )
 
@@ -37,9 +39,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Cycles Count",
-            "unit": "",
+            "unit_of_measurement": "",
             "device_class": "",
             "state_class": "measurement",
+            "suggested_display_precision": 0,
         },
     )
 
@@ -47,7 +50,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Full Capacity",
-            "unit": "Ah",
+            "unit_of_measurement": "Ah",
             "device_class": "energy",
             "state_class": "measurement",
             "suggested_display_precision": 2,
@@ -58,7 +61,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Remaining Capacity",
-            "unit": "Ah",
+            "unit_of_measurement": "Ah",
             "device_class": "energy",
             "state_class": "measurement",
             "suggested_display_precision": 2,
@@ -69,9 +72,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Pack Voltage",
-            "unit": "V",
+            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
+            "suggested_display_precision": 2,
         },
     )
 
@@ -79,7 +83,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Current",
-            "unit": "A",
+            "unit_of_measurement": "A",
             "device_class": "current",
             "state_class": "measurement",
             "suggested_display_precision": 2,
@@ -90,7 +94,7 @@ class Status:
         default_factory=list,
         metadata={
             "name": "Cell Voltage",
-            "unit": "V",
+            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
@@ -101,7 +105,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Min Cell Voltage",
-            "unit": "V",
+            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
@@ -112,7 +116,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Max Cell Voltage",
-            "unit": "V",
+            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
@@ -123,7 +127,7 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Cell Voltage Delta",
-            "unit": "V",
+            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,

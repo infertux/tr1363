@@ -14,18 +14,17 @@ class Serial:
             timeout=2,
         )
 
-        print(self.ser.get_settings())
+        # print(self.ser.get_settings())
 
     def read_status(self):
         request = b"~22014A42E00201FD28\r"
 
-        print(f"Sending request {request}...")
+        # print(f"Sending request {request}...")
         self.ser.reset_input_buffer()
         self.ser.write(request)
 
         frame = self.ser.read_until(b"\r")
-        print("\nASCII response:")
-        print(frame)
+        print("\nASCII response:", frame)
 
         return frame
 
