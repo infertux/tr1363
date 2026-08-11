@@ -3,9 +3,9 @@ from .parser import Parser
 
 
 class TR1363:
-    def __init__(self, port):
+    def __init__(self, port, baud):
         self.port = port
-        self.baud = 19200
+        self.baud = baud
 
     def read_status(self):
         serial = Serial(self.port, self.baud)

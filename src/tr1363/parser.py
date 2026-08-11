@@ -64,28 +64,30 @@ class Parser:
         if not frame.startswith("~"):
             raise InvalidFrame("Frame does not start with '~'")
 
-        if len(frame) < 18:
+        header_size = 14
+
+        if len(frame) < header_size + 1:
             raise InvalidFrame("Frame too short")
 
-        # Remove '~'
+        # Remove initial '~'
         body = frame[1:]
 
         if not re.fullmatch(r"[0-9A-Fa-f]+", body):
             raise InvalidFrame(f"Invalid hex characters in {body}")
 
-        # Header is always 16 ASCII hex chars
-        header = body[:16]
-        payload = body[16:]
+        header = body[:header_size]
+        payload = body[header_size:]
 
         status = Status()
+        result = {}  # TODO: remove
         pos = 0
 
-        result = {}
-        result["header"] = header
+        # print(header)
+        assert header == "22014A00E0C600"
 
-        # SOC???
-        soc, pos = read_u8(payload, pos)
-        status.soc = soc
+        # SOC
+        soc, pos = read_u16(payload, pos)
+        status.soc = soc / 100.0
 
         # Pack voltage
         pack_voltage, pos = read_u16(payload, pos)
@@ -93,19 +95,19 @@ class Parser:
 
         # Number of cells
         cell_count, pos = read_u8(payload, pos)
-        result["cell_count"] = cell_count
 
         # Cell voltages
         cells = []
         for _ in range(cell_count):
             mv, pos = read_u16(payload, pos)
-            cells.append(round(mv / 1000.0, 3))  # round() needed?
-            status.cell_voltages.append(round(mv / 1000.0, 3))  # round() needed?
+            voltage = round(mv / 1000.0, 3)  # round() needed?
+            cells.append(voltage)
+            status.cell_voltages.append(voltage)
 
-        result["cell_voltages"] = cells
-        result["cell_min"] = min(cells)
-        result["cell_max"] = max(cells)
-        result["cell_delta"] = round(max(cells) - min(cells), 3)
+        status.cell_voltage_min = min(cells)
+        status.cell_voltage_max = max(cells)
+        status.cell_voltage_delta = round(max(cells) - min(cells), 3)
+
         result["cell_min_index"] = (
             cells.index(min(cells)) + 1
         )  # TODO: add autodiscovery
@@ -139,22 +141,20 @@ class Parser:
             # print(tmp) # always "0"
 
         soh, pos = read_u8(payload, pos)
-        result["soh"] = soh
+        status.soh = soh
 
         tmp, pos = read_u8(payload, pos)
         # print(tmp) # always "1"?
+        assert tmp == 1
 
         capacity_full, pos = read_u16(payload, pos)
-        result["capacity_full"] = capacity_full / 100.0
-
-        # XXX: really?
-        # result["soc"] = round(result["soc"] / result["capacity_full"] * 100, 2)
+        status.capacity_full = capacity_full / 100.0
 
         capacity_remaining, pos = read_u16(payload, pos)
-        result["capacity_remaining"] = capacity_remaining / 100.0
+        status.capacity_remaining = capacity_remaining / 100.0
 
         cycles, pos = read_u16(payload, pos)
-        result["cycles"] = cycles
+        status.cycles = cycles
 
         voltage_bitmap, pos = read_u16(payload, pos)
         print(f"Bitmap voltage:     {voltage_bitmap:016b}")
@@ -201,14 +201,12 @@ class Parser:
         tmp, pos = read_u8(payload, pos)
         print(tmp)
 
-        # TODO: assert no remaning payload left
+        checksum_expected, pos = read_u16(payload, pos)
+        assert pos == len(body) - header_size  # assert no remaining payload
 
-        # checksum_expected, pos = read_u16(payload, pos)
-        checksum_expected = hex(int(body[-4:], 16))
-        checksum_computed = hex(twos_complement(body[:-4]))
+        # checksum is 16 bits so we strip the last 4 ASCII chars
+        checksum_computed = twos_complement(body[:-4])
 
-        print("checksum_expected", checksum_expected)
-        print("checksum computed", checksum_computed)
         if checksum_computed != checksum_expected:
             raise CRCError
 
@@ -221,16 +219,8 @@ class Parser:
         #
         # 340 when balancing is ON? or is it OV flag?
         # 330 when balancing is OFF?
-        # balancing only when cell_max < 3.60V???
 
-        # 3.65V+ triggers OV alarm
-        # 3.50V clears OV?
-
-        # float = 54.3V --> shunt at 54.17V and 0.0A
-        # float = 54.4V --> shunt at 54.23V and 0.0A
-
-        result["remaining_payload"] = payload[pos:]
-
-        # return result
+        print("result =", result)
+        print("status =", status)
 
         return status

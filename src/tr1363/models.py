@@ -23,6 +23,48 @@ class Status:
         },
     )
 
+    soh: float = field(
+        default=-1.0,
+        metadata={
+            "name": "State of Health",
+            "unit": "%",
+            "device_class": "",
+            "state_class": "measurement",
+        },
+    )
+
+    cycles: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Cycles Count",
+            "unit": "",
+            "device_class": "",
+            "state_class": "measurement",
+        },
+    )
+
+    capacity_full: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Full Capacity",
+            "unit": "Ah",
+            "device_class": "energy",
+            "state_class": "measurement",
+            "suggested_display_precision": 2,
+        },
+    )
+
+    capacity_remaining: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Remaining Capacity",
+            "unit": "Ah",
+            "device_class": "energy",
+            "state_class": "measurement",
+            "suggested_display_precision": 2,
+        },
+    )
+
     pack_voltage: float = field(
         default=-1.0,
         metadata={
@@ -48,6 +90,39 @@ class Status:
         default_factory=list,
         metadata={
             "name": "Cell Voltage",
+            "unit": "V",
+            "device_class": "voltage",
+            "state_class": "measurement",
+            "suggested_display_precision": 3,
+        },
+    )
+
+    cell_voltage_min: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Min Cell Voltage",
+            "unit": "V",
+            "device_class": "voltage",
+            "state_class": "measurement",
+            "suggested_display_precision": 3,
+        },
+    )
+
+    cell_voltage_max: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Max Cell Voltage",
+            "unit": "V",
+            "device_class": "voltage",
+            "state_class": "measurement",
+            "suggested_display_precision": 3,
+        },
+    )
+
+    cell_voltage_delta: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Cell Voltage Delta",
             "unit": "V",
             "device_class": "voltage",
             "state_class": "measurement",

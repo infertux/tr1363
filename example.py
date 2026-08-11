@@ -5,7 +5,7 @@ from tr1363 import TR1363
 
 config = dotenv_values(".env")
 
-bms = TR1363(config["BMS_PORT"])
+bms = TR1363(config["BMS_PORT"], config["BMS_BAUD"])
 
 status = bms.read_status()
 
