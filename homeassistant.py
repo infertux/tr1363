@@ -12,7 +12,7 @@ import time
 
 from tr1363 import TR1363
 from tr1363.models import Status
-from tr1363.parser import InvalidFrame
+from tr1363.parser import CRCError, InvalidFrame
 
 DEVICE_ID = "bms_tr1363"
 
@@ -24,20 +24,15 @@ DEVICE = {
 }
 
 DISCOVERY_PREFIX = "homeassistant"
-# TODO: rename to "homeassistant/tr1363/battery"?
+STATE_TOPIC = f"{DEVICE_ID}/state"
 
-run = True
 mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 def exit_handler():
-    print("run = False")
-    global run
-    run = False
-
-    global mqttc
+    #global mqttc
     print("Disconnecting from MQTT")
     mqttc.disconnect()
     mqttc.loop_stop()
@@ -57,11 +52,13 @@ def main():
 
     for field in fields(Status):
         id = field.name
+        unique_id = f"sensor.{DEVICE_ID}_{id}"
 
         config = {
             "device": DEVICE,
-            "state_topic": "bms/state",
-            "unique_id": f"{DEVICE_ID}_{id}",
+            "state_topic": STATE_TOPIC,
+            "unique_id": unique_id,
+            "default_entity_id": unique_id,
             "name": field.metadata["name"],
             "value_template": f"{{{{ value_json.{id} }}}}",
             "state_class": field.metadata["state_class"],
@@ -74,27 +71,29 @@ def main():
             config["unit_of_measurement"] = field.metadata["unit_of_measurement"]
 
         if field.metadata["suggested_display_precision"]:
-            config["suggested_display_precision"] = field.metadata[
-                "suggested_display_precision"
-            ]
+            config["suggested_display_precision"] = field.metadata["suggested_display_precision"]
 
-        # print(config)
+        print(config)
 
         mqttc.publish(
-            f"{DISCOVERY_PREFIX}/sensor/{id}/config",
+            f"{DISCOVERY_PREFIX}/sensor/{DEVICE_ID}/{id}/config",
             json.dumps(config),
             retain=False,
         )
 
+        time.sleep(0.1)
+
     bms = TR1363(env["BMS_PORT"], env["BMS_BAUD"])
 
-    while run:
+    while True:
         try:
             status = bms.read_status()
-            mqttc.publish("bms/state", json.dumps(asdict(status)), retain=False)
+            mqttc.publish(STATE_TOPIC, json.dumps(asdict(status)), retain=False)
             time.sleep(1)
+        except CRCError as e:
+            print("Ignoring corrupted frame:", e)
         except InvalidFrame as e:
-            print("Ignoring invalid frame: ", e)
+            print("Ignoring invalid frame:", e)
 
 
 if __name__ == "__main__":

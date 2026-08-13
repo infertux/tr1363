@@ -83,7 +83,13 @@ class Parser:
         pos = 0
 
         # print(header)
-        assert header == "22014A00E0C600"
+        assert header in [
+          "22014A00E0C600",
+          "22014A00E0C620"
+          "22014A00E2C600",
+          "22014A00e0C600",
+          "22014a00E0C600",
+        ]
 
         # SOC
         soc, pos = read_u16(payload, pos)
@@ -138,7 +144,7 @@ class Parser:
 
         for _ in range(3):  # skip unidentified three "00"
             tmp, pos = read_u8(payload, pos)
-            # print(tmp) # always "0"
+            print(tmp) # always "0"
             assert tmp == 0
 
         soh, pos = read_u8(payload, pos)
@@ -183,6 +189,7 @@ class Parser:
             print(f"Bitmap ???:         {tmp:016b}")
 
         balance_bitmap, pos = read_u16(payload, pos)
+        status.cell_balancing = balance_bitmap
         print(f"Bitmap balance:     {balance_bitmap:016b}")
 
         cell_balancing = []
@@ -200,7 +207,7 @@ class Parser:
             print(f"Bitmap ???:         {tmp:016b}")
 
         tmp, pos = read_u8(payload, pos)
-        # print("tmp", tmp)
+        print("tmp", tmp)
         assert tmp == 0
 
         checksum_expected, pos = read_u16(payload, pos)

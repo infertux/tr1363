@@ -134,6 +134,17 @@ class Status:
         },
     )
 
+    cell_balancing: float = field(
+        default=-1.0,
+        metadata={
+            "name": "Cell Balancing Bitmap",
+            "device_class": None,
+            "state_class": "measurement",
+            "unit_of_measurement": None,
+            "suggested_display_precision": 0,
+        },
+    )
+
     cell_over_voltage_protection: float = field(  # TODO: should be binary_sensor?
         default=-1.0,
         metadata={
