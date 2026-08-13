@@ -59,7 +59,7 @@ class Parser:
             try:
                 frame = frame.decode("ascii", errors="strict").strip()
             except UnicodeDecodeError as e:
-                raise ValueError(f"Invalid ASCII in frame: {e}")
+                raise InvalidFrame(f"Invalid ASCII in frame: {e}")
 
         if not frame.startswith("~"):
             raise InvalidFrame("Frame does not start with '~'")
@@ -102,7 +102,7 @@ class Parser:
             mv, pos = read_u16(payload, pos)
             voltage = round(mv / 1000.0, 3)  # round() needed?
             cells.append(voltage)
-            status.cell_voltages.append(voltage)
+            # status.cell_voltages.append(voltage)
 
         status.cell_voltage_min = min(cells)
         status.cell_voltage_max = max(cells)
@@ -139,6 +139,7 @@ class Parser:
         for _ in range(3):  # skip unidentified three "00"
             tmp, pos = read_u8(payload, pos)
             # print(tmp) # always "0"
+            assert tmp == 0
 
         soh, pos = read_u8(payload, pos)
         status.soh = soh
@@ -159,11 +160,11 @@ class Parser:
         voltage_bitmap, pos = read_u16(payload, pos)
         print(f"Bitmap voltage:     {voltage_bitmap:016b}")
 
-        cell_overvoltage_protection = voltage_bitmap & 1  # bit 0
-        result["cell_overvoltage_protection"] = cell_overvoltage_protection
+        cell_over_voltage_protection = voltage_bitmap & 1  # bit 0
+        status.cell_over_voltage_protection = cell_over_voltage_protection
 
-        cell_overvoltage_alarm = (voltage_bitmap >> 4) & 1  # bit 4
-        result["cell_overvoltage_alarm"] = cell_overvoltage_alarm
+        cell_over_voltage_alarm = (voltage_bitmap >> 4) & 1  # bit 4
+        result["cell_over_voltage_alarm"] = cell_over_voltage_alarm
 
         cell_voltage_diff_alarm = (voltage_bitmap >> 8) & 1  # bit 8
         result["cell_voltage_diff_alarm"] = cell_voltage_diff_alarm
@@ -199,7 +200,8 @@ class Parser:
             print(f"Bitmap ???:         {tmp:016b}")
 
         tmp, pos = read_u8(payload, pos)
-        print(tmp)
+        # print("tmp", tmp)
+        assert tmp == 0
 
         checksum_expected, pos = read_u16(payload, pos)
         assert pos == len(body) - header_size  # assert no remaining payload

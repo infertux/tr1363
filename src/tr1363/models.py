@@ -17,10 +17,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "State of Charge",
-            "unit_of_measurement": "%",
             "device_class": "battery",
             "state_class": "measurement",
             "suggested_display_precision": 2,
+            "unit_of_measurement": "%",
         },
     )
 
@@ -28,10 +28,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "State of Health",
-            "unit_of_measurement": "%",
-            "device_class": "",
+            "device_class": None,
             "state_class": "measurement",
             "suggested_display_precision": 0,
+            "unit_of_measurement": "%",
         },
     )
 
@@ -39,10 +39,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Cycles Count",
-            "unit_of_measurement": "",
-            "device_class": "",
+            "device_class": None,
             "state_class": "measurement",
             "suggested_display_precision": 0,
+            "unit_of_measurement": None,
         },
     )
 
@@ -50,10 +50,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Full Capacity",
-            "unit_of_measurement": "Ah",
-            "device_class": "energy",
+            "device_class": None,
             "state_class": "measurement",
             "suggested_display_precision": 2,
+            "unit_of_measurement": "Ah",
         },
     )
 
@@ -61,10 +61,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Remaining Capacity",
-            "unit_of_measurement": "Ah",
-            "device_class": "energy",
+            "device_class": None,
             "state_class": "measurement",
             "suggested_display_precision": 2,
+            "unit_of_measurement": "Ah",
         },
     )
 
@@ -72,10 +72,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Pack Voltage",
-            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 2,
+            "unit_of_measurement": "V",
         },
     )
 
@@ -83,32 +83,32 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Current",
-            "unit_of_measurement": "A",
             "device_class": "current",
             "state_class": "measurement",
             "suggested_display_precision": 2,
+            "unit_of_measurement": "A",
         },
     )
 
-    cell_voltages: list[float] = field(
-        default_factory=list,
-        metadata={
-            "name": "Cell Voltage",
-            "unit_of_measurement": "V",
-            "device_class": "voltage",
-            "state_class": "measurement",
-            "suggested_display_precision": 3,
-        },
-    )
+    # cell_voltages: list[float] = field(
+    #    default_factory=list,
+    #    metadata={
+    #        "name": "Cell Voltage",
+    #        "unit_of_measurement": "V",
+    #        "device_class": "voltage",
+    #        "state_class": "measurement",
+    #        "suggested_display_precision": 3,
+    #    },
+    # )
 
     cell_voltage_min: float = field(
         default=-1.0,
         metadata={
             "name": "Min Cell Voltage",
-            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
+            "unit_of_measurement": "V",
         },
     )
 
@@ -116,10 +116,10 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Max Cell Voltage",
-            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
+            "unit_of_measurement": "V",
         },
     )
 
@@ -127,10 +127,21 @@ class Status:
         default=-1.0,
         metadata={
             "name": "Cell Voltage Delta",
-            "unit_of_measurement": "V",
             "device_class": "voltage",
             "state_class": "measurement",
             "suggested_display_precision": 3,
+            "unit_of_measurement": "V",
+        },
+    )
+
+    cell_over_voltage_protection: float = field(  # TODO: should be binary_sensor?
+        default=-1.0,
+        metadata={
+            "name": "Cell Over Voltage Protection",
+            "device_class": None,
+            "state_class": "measurement",
+            "unit_of_measurement": None,
+            "suggested_display_precision": 0,
         },
     )
 

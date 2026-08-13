@@ -1,5 +1,6 @@
 /.env
 /captures/
+/deploy.sh
 
 __pycache__/
 *.egg-info/
