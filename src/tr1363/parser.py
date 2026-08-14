@@ -101,6 +101,7 @@ class Parser:
 
         # Number of cells
         cell_count, pos = read_u8(payload, pos)
+        assert cell_count == 16 #  other cell_count are not implemented yet
 
         # Cell voltages
         cells = []
@@ -108,44 +109,38 @@ class Parser:
             mv, pos = read_u16(payload, pos)
             voltage = round(mv / 1000.0, 3)  # round() needed?
             cells.append(voltage)
-            # status.cell_voltages.append(voltage)
 
-        status.cell_voltage_min = min(cells)
-        status.cell_voltage_max = max(cells)
+        status.cell_min_voltage = min(cells)
+        status.cell_max_voltage = max(cells)
+
+        status.cell_min_index = cells.index(min(cells)) + 1
+        status.cell_max_index = cells.index(max(cells)) + 1
+
         status.cell_voltage_delta = round(max(cells) - min(cells), 3)
 
-        result["cell_min_index"] = (
-            cells.index(min(cells)) + 1
-        )  # TODO: add autodiscovery
-        result["cell_max_index"] = (
-            cells.index(max(cells)) + 1
-        )  # TODO: add autodiscovery
-
         # Temperature sensors
-        temperatures = []
-        for _ in range(3):
-            t, pos = read_u16(payload, pos)
-            temperatures.append(t / 10.0)
+        t, pos = read_u16(payload, pos)
+        status.temperature_env = round(t / 10)
 
-        result["temperatures"] = {
-            "env": temperatures[0],
-            "pack": temperatures[1],
-            "mos": temperatures[2],
-            "cells": [],
-        }
+        t, pos = read_u16(payload, pos)
+        status.temperature_pack = round(t / 10)
+
+        t, pos = read_u16(payload, pos)
+        status.temperature_mosfet = round(t / 10)
 
         temperature_count, pos = read_u8(payload, pos)
+        result["temperature_cells"] = []
         for _ in range(temperature_count):
             t, pos = read_u16(payload, pos)
-            result["temperatures"]["cells"].append(t / 10.0)
+            result["temperature_cells"].append(t / 10)
 
         current, pos = read_s16(payload, pos)
         status.current = current / 100.0
 
         for _ in range(3):  # skip unidentified three "00"
             tmp, pos = read_u8(payload, pos)
-            print(tmp) # always "0"
-            assert tmp == 0
+            print(tmp) # seen [0,0,0], [0,16,?], [0,0,32]
+            assert tmp in [0, 16, 32]
 
         soh, pos = read_u8(payload, pos)
         status.soh = soh
@@ -189,18 +184,14 @@ class Parser:
             print(f"Bitmap ???:         {tmp:016b}")
 
         balance_bitmap, pos = read_u16(payload, pos)
-        status.cell_balancing = balance_bitmap
+        status.cell_balancing_bitmap = balance_bitmap
         print(f"Bitmap balance:     {balance_bitmap:016b}")
 
-        cell_balancing = []
         for cell in range(16):
-            balancing = 1 if balance_bitmap & (1 << cell) else 0
-            # TODO: should probably be a bool but we need to implement binary_sensor first
-            cell_balancing.append(balancing)
+            balancing = balance_bitmap & (1 << cell)
+            # TODO: publish as binary_sensor?
             if balancing:
                 print(f"Cell {cell + 1} balancing")
-
-        result["cell_balancing"] = cell_balancing
 
         for _ in range(6):
             tmp, pos = read_u16(payload, pos)

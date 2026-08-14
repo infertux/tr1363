@@ -15,7 +15,8 @@ def test_status_frame():
     assert status.capacity_remaining == 224.67
     assert status.pack_voltage == 54.26
     assert status.current == 1.19
-    assert status.cell_voltages[15] == 3.694
+    assert status.cell_max_voltage == 3.694
+    assert status.temperature_pack == 28
 
 
 def test_capacity():

@@ -18,7 +18,6 @@ DEVICE_ID = "bms_tr1363"
 
 DEVICE = {
     "identifiers": [DEVICE_ID],
-    "manufacturer": "Unknown",
     "model": "TR1363",
     "name": "BMS TR1363",
 }
@@ -80,8 +79,6 @@ def main():
             json.dumps(config),
             retain=False,
         )
-
-        time.sleep(0.1)
 
     bms = TR1363(env["BMS_PORT"], env["BMS_BAUD"])
 
